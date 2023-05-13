@@ -2,7 +2,7 @@
 
 import numpy as np
 import rospy
-
+from std_msgs.msg import Float32MultiArray
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -11,7 +11,7 @@ from geometry_msgs.msg import Point #geometry_msgs not in CMake file
 from visual_servoing.msg import ConeLocationPixel
 
 # import your color segmentation algorithm; call this function in ros_image_callback!
-from computer_vision.color_segmentation import cd_color_segmentation
+from computer_vision.color_segmentation import cd_color_segmentation, transform_image
 
 
 class ConeDetector():
@@ -45,21 +45,18 @@ class ConeDetector():
         #################################
 
         image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
-
-        bbox = cd_color_segmentation(image,"") #((x,y),(x+w,y+h))
-
-        if bbox == ((0,0),(0,0)):
-            rospy.loginfo("no cone detected")
+        img = transform_image(image)
+        img, lines, found = cd_color_segmentation(img,'')
+        if len(lines) == 0:
+            rospy.logerr("no lines found :(())")
         else:
-            center_pix = ConeLocationPixel()
-            center_pix.u = (bbox[0][0]+ bbox[1][0])/2
-            center_pix.v = np.max(bbox[0][1], bbox[1][1]) #get bottom one 
-
-            self.cone_pub.publish(center_pix)
+            float_array_msg = Float32MultiArray()
+            rospy.logerr("x1{}y1{}x2{}y2".format(lines[0][0], lines[0][1], lines[0][2], lines[0][3]))
+            float_array_msg.data = [lines[0][0], lines[0][1], lines[0][2], lines[0][3]]
+            self.info_pub.publish(float_array_msg)
+            self.cone_pub.publish()
         
-        #debug msg
-        image1 = cv2.rectangle(image, bbox[0], bbox[1], (0,225,0), 2)
-        debug_msg = self.bridge.cv2_to_imgmsg(image1, "bgr8")
+        debug_msg = self.bridge.cv2_to_imgmsg(img, "bgr8")
         self.debug_pub.publish(debug_msg)
 
 
